@@ -1,0 +1,248 @@
+from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Generic, TypeVar
+
+import pandas as pd
+
+from src.core.experiments.evaluation import EvalConfig, EvalResults
+from src.core.experiments.train import TrainConfig, TrainResults
+from src.core.metrics.base import Metric
+from src.core.models.base import Model
+
+EC = TypeVar("EC", bound=EvalConfig)
+ER = TypeVar("ER", bound=EvalResults)
+TC = TypeVar("TC", bound=TrainConfig)
+TR = TypeVar("TR", bound=TrainResults)
+
+
+class Pipeline(ABC, Generic[EC, ER, TC, TR]):
+    """
+    General pipeline algorithm.
+
+    Note that everything is very senseible to the names of the datasets and the models.
+    Training results are made by pairs (train data, model).
+    Testing results are mad eby triplets (train data, test data, model).
+
+    Attributes:
+    TODO
+    """
+
+    def __init__(
+        self,
+        train_configs: Sequence[TC],
+        test_configs: Sequence[EC],
+        models: Sequence[Model[EC, ER, TC, TR]],
+        metrics: Sequence[Metric[EC, ER]],
+    ):
+        """
+        Initializes all the attributes.
+
+        Also ensures that all necessary directories are created.
+        """
+
+        self.train_configs = train_configs
+        self.test_configs = test_configs
+        self.models = models
+        self.metrics = metrics
+
+        self.path = Path("ivsurfacefitting")  # TODO: FIX THIS!!!!!!
+
+        self.results_path = self.path / "results"
+        self.results_path.mkdir(parents=True, exist_ok=True)
+
+        self.train_results_path = self.results_path / "train"
+        self.train_results_path.mkdir(parents=True, exist_ok=True)
+
+        self.test_results_path = self.results_path / "test"
+        self.test_results_path.mkdir(parents=True, exist_ok=True)
+
+        # Create training and testing directories
+
+        for test_config in self.test_configs:
+            for model in self.models:
+                if model.learnable:
+                    for train_config in self.train_configs:
+                        p = self.train_results_path / model.name / train_config.name
+                        p.mkdir(parents=True, exist_ok=True)
+
+                        p = (
+                            self.test_results_path
+                            / model.name
+                            / train_config.name
+                            / test_config.name
+                        )
+                        p.mkdir(parents=True, exist_ok=True)
+
+                else:
+                    p = (
+                        self.test_results_path
+                        / model.name
+                        / "NoTrain"
+                        / test_config.name
+                    )  # No train added so results live in the same depth.
+                    p.mkdir(parents=True, exist_ok=True)
+
+    def _train(self, forcetrain: bool):
+        """
+        Trains and saves all trainable models.
+
+        Args:
+            forcetrain (bool): Retrain the models even if they already exist.
+        """
+
+        for model in self.models:
+            for train_config in self.train_configs:
+                path = self.train_results_path / model.name / train_config.name
+                model_path = path / "trained_model.pt"
+
+                if model.learnable and ((not model_path.exists()) or forcetrain):
+                    print(f"Learning {model.name} for dataset {train_config.name}.")
+                    train_results = model.learn(train_config)
+                    print("Learnt.")
+
+                    train_results.save(path)
+
+                    print(
+                        f"Saving {model.name} for dataset {train_config.name} to {model_path}."
+                    )
+                    model.save(model_path)
+                    print("Saved.")
+
+    def _fit(self, forcefit: bool):
+        """
+        Fits/Evaluates each of the models.
+
+        Args:
+            forcefit(bool): Refit the models even if results already exist.
+        """
+        for model in self.models:
+            print(f"Fitting and predicting for model {model.name}.")
+
+            if model.learnable:
+                for train_config in self.train_configs:
+                    path = self.train_results_path / model.name / train_config.name
+
+                    model_path = path / "trained_model.pt"
+
+                    print(f"Loading {model.name} for dataset {train_config.name}.")
+                    model.load(model_path)
+                    print("Loaded.")
+
+                    for test_config in self.test_configs:
+                        results_path = (
+                            self.test_results_path
+                            / model.name
+                            / train_config.name
+                            / test_config.name
+                        )
+
+                        if not self._results_exist(results_path) or forcefit:
+                            results = model.fit(test_config)
+
+                            results.save(results_path)
+
+            elif not model.learnable:
+                for test_config in self.test_configs:
+                    results_path = (
+                        self.test_results_path
+                        / model.name
+                        / "NoTrain"
+                        / test_config.name
+                    )
+
+                    if not self._results_exist(results_path) or forcefit:
+                        results = model.fit(test_config)
+
+                        results.save(results_path)
+
+    @abstractmethod
+    def _results_exist(self, path: Path) -> bool:
+        """
+        Checks if results exist in the given directory.
+
+        It depends on the problem to what it means for the results to exist.
+
+        Args:
+            path (Path): Where to look for results.
+        """
+        ...
+
+    @abstractmethod
+    def _load_results(self, path: Path) -> ER:
+        """
+        Loads results from path.
+        """
+        ...
+
+    def _analyze(self):
+        """
+        Goes through the metrics.
+        """
+
+        final_stats = pd.DataFrame(
+            columns=["train_dataset", "test_dataset", "model", "metric", "value"]
+        )
+
+        for model in self.models:
+            print(f"Fitting and predicting for model {model.name}.")
+
+            if model.learnable:
+                for train_config in self.train_configs:
+                    for test_config in self.test_configs:
+                        results_path = (
+                            self.test_results_path
+                            / model.name
+                            / train_config.name
+                            / test_config.name
+                        )
+                        results = self._load_results(results_path)
+
+                        for metric in self.metrics:
+                            val = metric(test_config, results)
+
+                            final_stats.loc[len(final_stats)] = [
+                                train_config.name,
+                                test_config.name,
+                                model.name,
+                                metric.name,
+                                val,
+                            ]
+
+            elif not model.learnable:
+                for test_config in self.test_configs:
+                    results_path = (
+                        self.test_results_path
+                        / model.name
+                        / "NoTrain"
+                        / test_config.name
+                    )
+                    results = self._load_results(results_path)
+
+                    for metric in self.metrics:
+                        val = metric(test_config, results)
+
+                        final_stats.loc[len(final_stats)] = [
+                            "NoTrain",
+                            test_config.name,
+                            model.name,
+                            metric.name,
+                            val,
+                        ]
+
+        print(final_stats)
+        final_stats.to_csv(self.results_path / "final_statistics.csv", index=False)
+
+    def run(self, forcetrain: bool = False, forcefit: bool = False):
+        """
+        Runs the pipeline.
+
+        Args:
+            forcetrain (bool): Retrain models even if trained models already exist.
+            forcefit (bool): Refit the models even if results already exist.
+        """
+        self._train(forcetrain)
+
+        self._fit(forcefit)
+
+        self._analyze()
