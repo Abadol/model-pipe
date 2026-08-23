@@ -1,6 +1,6 @@
-# EvISP
+# ModelPipe
 
-Everything is a pipeline.
+A framework for fair comparison of models attempting to solve the same problem.
 
 The idea is to try to standarize the running ad comparison of models that are trying to solve the same task, while keeping the comparison as fair as possible.
 
