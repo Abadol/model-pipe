@@ -36,7 +36,9 @@ class IVSurfacePipeline(
         metrics: list[IVMetric],
     ):
 
-        super().__init__(train_configs, test_configs, models, metrics, "ivsurfacefitting")
+        super().__init__(
+            train_configs, test_configs, models, metrics, "ivsurfacefitting"
+        )
 
     def _results_exist(self, path: Path) -> bool:
         """
@@ -45,9 +47,10 @@ class IVSurfacePipeline(
         Args:
             path (Path): Where to look for results.
         """
-        pred_path = path / "fit_results.csv"
+        pred_path = path / "test_results.csv"
         grid_path = path / "grid_results.csv"
-        return pred_path.exists() and grid_path.exists()
+        surfaces_path = path / "surface_info.csv"
+        return pred_path.exists() and grid_path.exists() and surfaces_path.exists()
 
     def _load_results(self, path: Path) -> IVSurfaceEvalResults:
         """

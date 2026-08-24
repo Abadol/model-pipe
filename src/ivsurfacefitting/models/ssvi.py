@@ -1,3 +1,5 @@
+from typing import cast
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
@@ -20,7 +22,7 @@ def eval_ssvi(k, T, sigma0, sigmainf, rho, eta, gamma, lamb):
 
     w = v / 2 * (1 + rho * phi * k + np.sqrt((phi * k + rho) ** 2 + 1 - rho * rho))
 
-    return w
+    return np.sqrt(w / T)
 
 
 class SSVI(IVSurfaceModel):
@@ -29,7 +31,20 @@ class SSVI(IVSurfaceModel):
 
     Remember the SSVI parametrization, wich is given by the formula:
 
-        w(k,T) = TODO LATEX
+        w(k, T) = v(T) / 2 * (
+            1 + rho * phi(T) * k
+            + sqrt((phi(T) * k + rho)**2 + 1 - rho**2)
+        ),
+
+    where w is total variance and:
+
+        sigma(T) = sigma_inf + (sigma_0 - sigma_inf) * exp(-lambda * T),
+        v(T)     = sigma(T)**2 * T,
+        phi(T)   = eta / v(T)**gamma.
+
+    then
+
+        sigma_SSVI(k, T) = sqrt(w(k, T) / T)
     """
 
     def __init__(self, name: str = "SSVI") -> None:
@@ -37,26 +52,38 @@ class SSVI(IVSurfaceModel):
 
     def fit(self, eval_config: IVSurfaceEvalConfig) -> IVSurfaceEvalResults:
 
-        data = eval_config.getdata()[["id", "logmoneyness", "maturity", "iv"]]
+        test, context, grid = eval_config.getdata()
 
-        final_results = []
+        final_test = []
 
-        for _, surface in tqdm(data.groupby("id")):
+        final_grid = []
 
-            def func(params, surface=surface):
+        surface_info = []
 
-                pred = eval_ssvi(surface["logmoneyness"], surface["maturity"], *params)
+        test_groups = dict(tuple(test.groupby("id")))
 
-                return np.linalg.norm(surface["iv"] - pred)
+        for id_, context_surface in tqdm(context.groupby("id")):
 
+            test_surface = cast(pd.DataFrame, test_groups.get(id_, test.iloc[0:0]))
+
+            k = context_surface["logmoneyness"].to_numpy()
+            T = context_surface["maturity"].to_numpy()
+            iv = context_surface["iv"].to_numpy()
+
+            def func(params, k=k, T=T, iv=iv):
+
+                pred = eval_ssvi(k, T, *params)
+                diff = iv - pred
+
+                return np.sum(diff**2)
             params0 = [0.25, 0.2, -0.5, 1.0, 0.5, 1.5]
 
             parambounds = [
-                [0.001, 2.0],
+                [0.001, 3.0],
                 [0.001, 2.0],
                 [-0.999, 0.999],
                 [0.001, 5.0],
-                [0.0, 1.0],
+                [0.0, 2.0],
                 [0.001, 20.0],
             ]
 
@@ -67,16 +94,41 @@ class SSVI(IVSurfaceModel):
                 bounds=parambounds,
             )
 
-            predictions = eval_ssvi(
-                surface["logmoneyness"], surface["maturity"], *(minimizer.x)
+            test_predictions = eval_ssvi(
+                test_surface["logmoneyness"], test_surface["maturity"], *(minimizer.x)
             )
 
-            results = surface[["id", "logmoneyness", "maturity"]].copy()
+            test_results = test_surface[["id", "logmoneyness", "maturity"]].copy()
 
-            results["iv"] = predictions
+            test_results["iv"] = test_predictions
 
-            final_results.append(results)
+            final_test.append(test_results)
+            
+            grid_predictions = eval_ssvi(
+                grid["logmoneyness"], grid["maturity"], *(minimizer.x)
+            )
 
-        final_results = pd.concat(final_results, ignore_index=True)
+            grid_results = grid.copy()
+            grid_results.insert(0, "id", id_)
 
-        return IVSurfaceEvalResults(final_results, pd.DataFrame())
+            grid_results["iv"] = grid_predictions
+
+            final_grid.append(grid_results)
+
+            surface_info.append([id_, *(minimizer.x)])
+
+        final_results = pd.concat(final_test, ignore_index=True)
+
+        final_grids = pd.concat(final_grid,ignore_index=True)
+
+        final_info = pd.DataFrame(surface_info, columns=["id","sigma0"," sigmainf"," rho"," eta"," gamma"," lambda"])
+
+        return IVSurfaceEvalResults(final_results, final_grids, final_info)
+
+
+
+
+
+
+
+

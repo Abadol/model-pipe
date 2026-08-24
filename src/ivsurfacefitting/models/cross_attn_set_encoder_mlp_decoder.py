@@ -156,7 +156,7 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
         """
         for module in self.modules():
             if hasattr(module, "reset_parameters") and not module is self:
-                module.reset_parameters()
+                module.reset_parameters()  # Not sure how to fix this pyright issue.
 
     def learn(self, train_config: IVSurfaceTrainConfig) -> IVSurfaceTrainResults:
         """
@@ -240,39 +240,78 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
 
     def fit(self, eval_config: IVSurfaceEvalConfig) -> IVSurfaceEvalResults:
 
-        data = eval_config.getdata()
-        coordinates = data[["id", "logmoneyness", "maturity"]]
+        test, context, grid = eval_config.getdata()
 
-        indices = cast(pd.Series, data["id"])
+        grid.insert(0, "id", 0)
 
-        data_tensor = df_to_tensor(
-            "id",
-            indices,
-            ["logmoneyness", "maturity", "iv"],
-            data,
-        )
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.to(device)
 
-        coords_tensor = df_to_tensor(
-            "id",
-            indices,
-            ["logmoneyness", "maturity"],
-            coordinates,
-        )
+        with torch.no_grad():
+            # cast to fix pyright errors
+            test_coordinates = cast(
+                pd.DataFrame, test[["id", "logmoneyness", "maturity"]]
+            )
+            indices = cast(pd.Series, test["id"])
 
-        results_tensor = self.forward(data_tensor, coords_tensor)
+            # Test evaluating
+            context_tensor = df_to_tensor(
+                "id",
+                indices,
+                ["logmoneyness", "maturity", "iv"],
+                context,
+            ).to(device)
 
-        results = tensor_to_df(
-            "id",
-            indices,
-            ["iv"],
-            results_tensor,
-        )
+            test_coords_tensor = df_to_tensor(
+                "id",
+                indices,
+                ["logmoneyness", "maturity"],
+                test_coordinates,
+            ).to(device)
 
-        final_results = coordinates.copy()
+            results_tensor = self.forward(context_tensor, test_coords_tensor).to("cpu")
 
-        final_results["iv"] = results["iv"]
+            ivs_results = tensor_to_df(
+                "id",
+                indices,
+                ["iv"],
+                results_tensor,
+            )
 
-        return IVSurfaceEvalResults(pd.DataFrame(final_results), pd.DataFrame())
+            test_results = test_coordinates.copy()
+
+            test_results["iv"] = ivs_results["iv"]
+
+            # Grid evaluating
+            grid_tensor = df_to_tensor(
+                "id",
+                cast(pd.Series, grid["id"]),
+                ["logmoneyness", "maturity"],
+                grid,
+            ).to(device)
+
+            grid_tensor = grid_tensor.repeat(len(indices.unique()), 1, 1)
+
+            results_tensor = self.forward(context_tensor, grid_tensor).to("cpu")
+
+            ivs_results = tensor_to_df(
+                "id",
+                indices,
+                ["iv"],
+                results_tensor,
+            )
+
+            grid_results = grid.copy()
+
+            grid_results["iv"] = ivs_results["iv"]
+
+            surface_info = pd.DataFrame(indices.drop_duplicates(), columns=["id"]) # No surface info to store (yet?)
+
+        self.to("cpu")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        return IVSurfaceEvalResults(test_results, grid_results, surface_info)
 
     def load(self, path):
         self.load_state_dict(torch.load(path))

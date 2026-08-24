@@ -67,11 +67,11 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
                         p = self._get_train_path(model, train_config)
                         p.mkdir(parents=True, exist_ok=True)
 
-                        p = self._get_test_path(model,train_config,test_config)
+                        p = self._get_test_path(model, train_config, test_config)
                         p.mkdir(parents=True, exist_ok=True)
 
                 else:
-                    p = self._get_test_path(model,None,test_config)
+                    p = self._get_test_path(model, None, test_config)
                     p.mkdir(parents=True, exist_ok=True)
 
     def _get_train_path(self, model: Model, train_config: TC) -> Path:
@@ -80,14 +80,23 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
         """
         return self.train_results_path / model.name / train_config.name
 
-    def _get_test_path(self, model: Model, train_config: TC | None, test_config: EC) -> Path:
+    def _get_test_path(
+        self, model: Model, train_config: TC | None, test_config: EC
+    ) -> Path:
         """
         Gets path for training directory of the model.
         """
         if train_config is None:
-            return self.test_results_path / model.name / "NoTrain" / test_config.name # no train so results live in same depth
+            return (
+                self.test_results_path / model.name / "NoTrain" / test_config.name
+            )  # no train so results live in same depth
         else:
-            return self.test_results_path / model.name / train_config.name / test_config.name
+            return (
+                self.test_results_path
+                / model.name
+                / train_config.name
+                / test_config.name
+            )
 
     def _train(self, forcetrain: bool):
         """
@@ -99,7 +108,7 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
 
         for model in self.models:
             for train_config in self.train_configs:
-                path = self._get_train_path(model,train_config) 
+                path = self._get_train_path(model, train_config)
                 model_path = path / "trained_model.pt"
 
                 if model.learnable and ((not model_path.exists()) or forcetrain):
@@ -135,8 +144,9 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
                     print("Loaded.")
 
                     for test_config in self.test_configs:
-
-                        results_path = self._get_test_path(model, train_config, test_config)
+                        results_path = self._get_test_path(
+                            model, train_config, test_config
+                        )
 
                         if not self._results_exist(results_path) or forcefit:
                             results = model.fit(test_config)
@@ -144,11 +154,9 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
 
             elif not model.learnable:
                 for test_config in self.test_configs:
-
                     results_path = self._get_test_path(model, None, test_config)
 
                     if not self._results_exist(results_path) or forcefit:
-                        
                         results = model.fit(test_config)
 
                         results.save(results_path)
@@ -178,37 +186,41 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
         """
 
         final_stats = pd.DataFrame(
-            columns=["train_dataset", "test_dataset", "model", *[metric.name for metric in self.metrics]]
+            columns=[
+                "train_dataset",
+                "test_dataset",
+                "model",
+                *[metric.name for metric in self.metrics],
+            ]
         )
 
         for model in self.models:
-            print(f"Fitting and predicting for model {model.name}.")
-
             if model.learnable:
                 for train_config in self.train_configs:
                     for test_config in self.test_configs:
-                        results_path = self._get_test_path(model, train_config, test_config)
+                        results_path = self._get_test_path(
+                            model, train_config, test_config
+                        )
                         results = self._load_results(results_path)
 
-                        row = [train_config.name , test_config.name, model.name]
+                        row = [train_config.name, test_config.name, model.name]
 
                         for metric in self.metrics:
                             row.append(metric(test_config, results))
 
-                            final_stats.loc[len(final_stats)] = row
+                        final_stats.loc[len(final_stats)] = row
 
             elif not model.learnable:
                 for test_config in self.test_configs:
                     results_path = self._get_test_path(model, None, test_config)
                     results = self._load_results(results_path)
 
-
-                    row = ["NoTrain" , test_config.name, model.name]
+                    row = ["NoTrain", test_config.name, model.name]
 
                     for metric in self.metrics:
                         row.append(metric(test_config, results))
 
-                        final_stats.loc[len(final_stats)] = row
+                    final_stats.loc[len(final_stats)] = row
 
         print(final_stats)
 

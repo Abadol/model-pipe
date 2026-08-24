@@ -16,8 +16,8 @@ class RMSE(IVMetric):
         """
         Measures mrse of predicted.
         """
-        real = config.getdata()
-        results_fit = results.fit_results
+        real,_,_ = config.getdata()
+        results_fit = results.test_results
 
         if not real["id"].equals(results_fit["id"]):
             raise ValueError("Index columns must match.")

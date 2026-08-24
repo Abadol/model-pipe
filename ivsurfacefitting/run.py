@@ -2,7 +2,8 @@ from pathlib import Path
 
 from src.ivsurfacefitting.experiments.evaluation import IVSurfaceEvalConfig
 from src.ivsurfacefitting.experiments.train import IVSurfaceTrainConfig
-from src.ivsurfacefitting.metrics.mse import RMSE
+from src.ivsurfacefitting.metrics.rmse import RMSE
+from src.ivsurfacefitting.metrics.mae import MAE
 from src.ivsurfacefitting.models.cross_attn_set_encoder_mlp_decoder import (
     CrossAttnEncodeMLPDecoder,
 )
@@ -18,12 +19,16 @@ train_configs = [
     ),
 ]
 
+splitter = lambda x: x
+
 test_configs = [
     IVSurfaceEvalConfig(
-        Path("ivsurfacefitting/datasets/heston/heston_test.csv"), "heston_test"
+        Path("ivsurfacefitting/datasets/heston/heston_test.csv"),
+        "heston_test",
+        splitter,
     ),
     IVSurfaceEvalConfig(
-        Path("ivsurfacefitting/datasets/2013/real_test.csv"), "real_test"
+        Path("ivsurfacefitting/datasets/2013/real_test.csv"), "real_test", splitter
     ),
 ]
 
@@ -31,7 +36,7 @@ pipeline = IVSurfacePipeline(
     train_configs,
     test_configs,
     [CrossAttnEncodeMLPDecoder(), SSVI()],
-    [RMSE()],
+    [RMSE(), MAE()],
 )
 
 pipeline.run(forcetrain=False, forcefit=False)
