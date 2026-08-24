@@ -36,7 +36,7 @@ class IVSurfacePipeline(
         metrics: list[IVMetric],
     ):
 
-        super().__init__(train_configs, test_configs, models, metrics)
+        super().__init__(train_configs, test_configs, models, metrics, "ivsurfacefitting")
 
     def _results_exist(self, path: Path) -> bool:
         """

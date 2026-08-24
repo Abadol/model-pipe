@@ -150,6 +150,14 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
 
         return self.network(x)
 
+    def reset_parameters(self):
+        """
+        Resets the parameters of all layers.
+        """
+        for module in self.modules():
+            if hasattr(module, "reset_parameters") and not module is self:
+                module.reset_parameters()
+
     def learn(self, train_config: IVSurfaceTrainConfig) -> IVSurfaceTrainResults:
         """
         Handles the learning/training.
@@ -157,6 +165,7 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
         Args:
             train_data (pd.DataFrame)
         """
+        self.reset_parameters()
         train_data = pd.read_csv(train_config.datapath)
 
         train_tensor = df_to_tensor(
