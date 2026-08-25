@@ -136,6 +136,9 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
             )
             model.save(model_path)
             print("Saved.")
+        if model.learnable and model_path.exists() and not forcetrain:
+            model.load(model_path)
+
 
     def _fit(self, train_config, test_config, model, forcefit):
         """
