@@ -121,7 +121,7 @@ class SSVI(IVSurfaceModel):
 
         final_grids = pd.concat(final_grid,ignore_index=True)
 
-        final_info = pd.DataFrame(surface_info, columns=["id","sigma0"," sigmainf"," rho"," eta"," gamma"," lambda"])
+        final_info = pd.DataFrame(surface_info, columns=["id","sigma0"," sigmainf"," rho"," eta"," gamma"," lambda"]).set_index("id")
 
         return IVSurfaceEvalResults(final_results, final_grids, final_info)
 

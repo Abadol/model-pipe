@@ -14,7 +14,7 @@ class MAE(IVMetric):
 
     def __call__(self, config: IVSurfaceEvalConfig, results: IVSurfaceEvalResults):
         """
-        Measures mrse of predicted.
+        Measures mae of predicted.
         """
         real,_,_ = config.getdata()
         results_fit = results.test_results
@@ -34,5 +34,7 @@ class MAE(IVMetric):
             .groupby("id")["error"]
             .apply(lambda x: np.mean(np.abs(x)))
         )
+
+        results.surface_info["mae"] = mae_per_id
 
         return mae_per_id.mean()

@@ -37,3 +37,5 @@ The data structures for this problem are as follows:
 - Datasets must have the same number sof rows per id for crossattn model to work, fix this.
 - Add more models and datasets, do heston yourself (only thing vibe coded).
 - Add visualization.
+- Add train statistics, e.g. time taken.
+- Consider if final results should include the average of metric across surfaces or the statistics of the metric.

@@ -98,69 +98,6 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
                 / test_config.name
             )
 
-    def _train(self, forcetrain: bool):
-        """
-        Trains and saves all trainable models.
-
-        Args:
-            forcetrain (bool): Retrain the models even if they already exist.
-        """
-
-        for model in self.models:
-            for train_config in self.train_configs:
-                path = self._get_train_path(model, train_config)
-                model_path = path / "trained_model.pt"
-
-                if model.learnable and ((not model_path.exists()) or forcetrain):
-                    print(f"Learning {model.name} for dataset {train_config.name}.")
-                    train_results = model.learn(train_config)
-                    print("Learnt.")
-
-                    train_results.save(path)
-
-                    print(
-                        f"Saving {model.name} for dataset {train_config.name} to {model_path}."
-                    )
-                    model.save(model_path)
-                    print("Saved.")
-
-    def _fit(self, forcefit: bool):
-        """
-        Fits/Evaluates each of the models.
-
-        Args:
-            forcefit(bool): Refit the models even if results already exist.
-        """
-        for model in self.models:
-            print(f"Fitting and predicting for model {model.name}.")
-
-            if model.learnable:
-                for train_config in self.train_configs:
-                    path = self._get_train_path(model, train_config)
-                    model_path = path / "trained_model.pt"
-
-                    print(f"Loading {model.name} for dataset {train_config.name}.")
-                    model.load(model_path)
-                    print("Loaded.")
-
-                    for test_config in self.test_configs:
-                        results_path = self._get_test_path(
-                            model, train_config, test_config
-                        )
-
-                        if not self._results_exist(results_path) or forcefit:
-                            results = model.fit(test_config)
-                            results.save(results_path)
-
-            elif not model.learnable:
-                for test_config in self.test_configs:
-                    results_path = self._get_test_path(model, None, test_config)
-
-                    if not self._results_exist(results_path) or forcefit:
-                        results = model.fit(test_config)
-
-                        results.save(results_path)
-
     @abstractmethod
     def _results_exist(self, path: Path) -> bool:
         """
@@ -180,11 +117,65 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
         """
         ...
 
-    def _analyze(self):
+    def _train(self,train_config, model, forcetrain):
         """
-        Goes through the metrics.
+        Trains and saves a model.
         """
+        train_path = self._get_train_path(model, train_config)
+        model_path = train_path / "trained_model.pt"
 
+        if model.learnable and ((not model_path.exists()) or forcetrain):
+            print(f"Learning {model.name} for dataset {train_config.name}.")
+            train_results = model.learn(train_config)
+            print("Learnt.")
+
+            train_results.save(train_path)
+
+            print(
+                f"Saving {model.name} for dataset {train_config.name} to {model_path}."
+            )
+            model.save(model_path)
+            print("Saved.")
+
+    def _fit(self, train_config, test_config, model, forcefit):
+        """
+        Fits each model and applies the metrics.
+        """
+        
+        results_path = self._get_test_path(
+            model, train_config, test_config
+        )
+
+        if not self._results_exist(results_path) or forcefit:
+            if train_config == None:
+                print(f"Fitting {model.name} for dataset {test_config.name}.")
+            else:
+                print(f"Fitting {model.name} with training in {train_config.name} for dataset {test_config.name}.")
+
+            results = model.fit(test_config)
+        else:
+            results = self._load_results(results_path)
+        
+        if train_config == None:
+             row = ["NoTrain", test_config.name, model.name]
+        else:
+             row = [train_config.name, test_config.name, model.name]
+
+        for metric in self.metrics:
+            row.append(metric(test_config, results))
+        results.save(results_path) # metrics may add columns to surface info
+
+        return row
+
+
+    def run(self, forcetrain: bool = False, forcefit: bool = False):
+        """
+        Runs the pipeline.
+
+        Args:
+            forcetrain (bool): Retrain models even if trained models already exist.
+            forcefit (bool): Refit the models even if results already exist.
+        """
         final_stats = pd.DataFrame(
             columns=[
                 "train_dataset",
@@ -197,45 +188,23 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
         for model in self.models:
             if model.learnable:
                 for train_config in self.train_configs:
+
+                    self._train(train_config, model, forcetrain)
+
                     for test_config in self.test_configs:
-                        results_path = self._get_test_path(
-                            model, train_config, test_config
-                        )
-                        results = self._load_results(results_path)
 
-                        row = [train_config.name, test_config.name, model.name]
-
-                        for metric in self.metrics:
-                            row.append(metric(test_config, results))
+                        row = self._fit(train_config, test_config, model, forcefit)
 
                         final_stats.loc[len(final_stats)] = row
 
             elif not model.learnable:
                 for test_config in self.test_configs:
-                    results_path = self._get_test_path(model, None, test_config)
-                    results = self._load_results(results_path)
 
-                    row = ["NoTrain", test_config.name, model.name]
-
-                    for metric in self.metrics:
-                        row.append(metric(test_config, results))
+                    row = self._fit(None, test_config, model, forcefit)
 
                     final_stats.loc[len(final_stats)] = row
+
 
         print(final_stats)
 
         final_stats.to_csv(self.results_path / "final_statistics.csv", index=False)
-
-    def run(self, forcetrain: bool = False, forcefit: bool = False):
-        """
-        Runs the pipeline.
-
-        Args:
-            forcetrain (bool): Retrain models even if trained models already exist.
-            forcefit (bool): Refit the models even if results already exist.
-        """
-        self._train(forcetrain)
-
-        self._fit(forcefit)
-
-        self._analyze()

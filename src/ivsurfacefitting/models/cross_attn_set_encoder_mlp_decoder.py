@@ -305,7 +305,7 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
 
             grid_results["iv"] = ivs_results["iv"]
 
-            surface_info = pd.DataFrame(indices.drop_duplicates(), columns=["id"]) # No surface info to store (yet?)
+            surface_info = pd.DataFrame(indices.drop_duplicates(), columns=["id"]).set_index("id") # No surface info to store (yet?)
 
         self.to("cpu")
         if torch.cuda.is_available():

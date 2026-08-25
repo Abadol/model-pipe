@@ -83,9 +83,9 @@ class IVSurfaceEvalResults(EvalResults):
             self.surface_info = surface_info
 
     def save(self, path: Path):
-        self.test_results.to_csv(path / "test_results.csv", index=False)
-        self.grid_results.to_csv(path / "grid_results.csv", index=False)
-        self.surface_info.to_csv(path / "surface_info.csv", index=False)
+        self.test_results.to_csv(path / "test_results.csv")
+        self.grid_results.to_csv(path / "grid_results.csv")
+        self.surface_info.to_csv(path / "surface_info.csv")
 
     def load(self, path: Path):
         try:

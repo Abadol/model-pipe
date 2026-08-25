@@ -35,4 +35,7 @@ class RMSE(IVMetric):
             .apply(lambda x: np.sqrt(np.mean(x**2)))
         )
 
+
+        results.surface_info["rmse"] = rmse_per_id
+
         return rmse_per_id.mean()

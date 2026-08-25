@@ -27,7 +27,7 @@ If you only want to fit or retrain one model, the esier way is to remove the exi
 
 ## Templating
 
-Each problem should have their own README explaining a few things. First what problem they are trying to solve, the specific data types and requirements of everything, both of the datasets and the results. It should also include tables giving brief overvies of how each dataset is generated or downloaded, how each model works (along with reference to the relevant papers) and finally what each metric is measuring.
+Each problem should have their own README explaining a few things, an example can be found in ivsurfacefitting. First what problem they are trying to solve, the specific data types and requirements of everything, both of the datasets and the results. It should also include tables giving brief overvies of how each dataset is generated or downloaded, how each model works (along with reference to the relevant papers) and finally what each metric is measuring.
 Optimally, each problem should have scripts for generating/downloading data with the right structure, and then a run script that constructs each of the objects, then simply calling pipeline.run should do everything.
 
 ## Requirements
@@ -36,4 +36,4 @@ Almost no libraries are used in the genral framework. This is on purpose so that
 
 ## TODO
 
-Apart from fixing specific problem TODOs, adding more problems and models, consider adding testing.
+Apart from specific problem TODOs, found in their respective READMEs, adding more problems and models, consider adding testing.
