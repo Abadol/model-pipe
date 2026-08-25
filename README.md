@@ -36,4 +36,4 @@ Almost no libraries are used in the genral framework. This is on purpose so that
 
 ## TODO
 
-Apart from specific problem TODOs, found in their respective READMEs, adding more problems and models, consider adding testing.
+Apart from specific problem TODOs, found in their respective READMEs, fix randomness, add tests, decide on train/learn fit/eval/predict semantics, and reconsider Metrics.
