@@ -10,7 +10,7 @@ The run is an example, it is up to the user to generate the datasets.
 
 The data structures for this problem are as follows:
 - Train data: a csv with the columns ["id","logmoneyness","maturity","iv"], it may contain others such as call prices or quotes, where iv may be the mid, but these are not strictly required.
-- Test data: a csv with the same structure as train data. It also gets a splitter that tells us how one should split the test data into context and heldout parts. Finally it includes a grid to check for no arbitrage.
+- Test data: a csv with the same structure as train data. It also gets a splitter that tells us how one should split the test data into context and evaluation parts. (TODO) Finally it includes a grid to check for no arbitrage.
 
 ## Datasets
 
@@ -35,7 +35,7 @@ The data structures for this problem are as follows:
 - Add splitters.
 - Add na metrics.
 - Datasets must have the same number sof rows per id for crossattn model to work, fix this.
-- Add more models and datasets, do heston yourself (only thing vibe coded).
+- Add more models and datasets, for example heston.
 - Add visualization.
 - Add train statistics, e.g. time taken.
 - Consider if final results should include the average of metric across surfaces or the statistics of the metric.

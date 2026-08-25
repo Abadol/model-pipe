@@ -29,7 +29,7 @@ class IVSurfaceTrainConfig(TrainConfig):
         """
         Returns the dataframe from its path.
         """
-        return pd.read_csv(self.datapath)
+        return pd.read_csv(self.datapath, index_col="id")
 
 
 class IVSurfaceTrainResults(TrainResults):

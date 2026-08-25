@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pandas as pd
+
 from src.ivsurfacefitting.experiments.evaluation import IVSurfaceEvalConfig
 from src.ivsurfacefitting.experiments.train import IVSurfaceTrainConfig
 from src.ivsurfacefitting.metrics.rmse import RMSE
@@ -15,11 +17,17 @@ train_configs = [
         Path("ivsurfacefitting/datasets/heston/heston_train.csv"), "heston_train"
     ),
     IVSurfaceTrainConfig(
-        Path("ivsurfacefitting/datasets/2013/real_train.csv"), "real_train"
+        Path("ivsurfacefitting/datasets/2013/2013_train.csv"), "2013_train"
     ),
 ]
 
-splitter = lambda x: x
+# uses exactly half the data per index for context
+def splitter(df: pd.DataFrame):
+    end = []
+    for _,group in df.groupby(level=0):
+        end.append(group.sample(n=len(group)//10))
+    return pd.concat(end)
+
 
 test_configs = [
     IVSurfaceEvalConfig(
@@ -28,7 +36,7 @@ test_configs = [
         splitter,
     ),
     IVSurfaceEvalConfig(
-        Path("ivsurfacefitting/datasets/2013/real_test.csv"), "real_test", splitter
+        Path("ivsurfacefitting/datasets/2013/2013_test.csv"), "2013_test", splitter
     ),
 ]
 

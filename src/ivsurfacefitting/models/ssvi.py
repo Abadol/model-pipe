@@ -60,9 +60,9 @@ class SSVI(IVSurfaceModel):
 
         surface_info = []
 
-        test_groups = dict(tuple(test.groupby("id")))
+        test_groups = dict(tuple(test.groupby(level=0)))
 
-        for id_, context_surface in tqdm(context.groupby("id")):
+        for id_, context_surface in tqdm(context.groupby(level=0)):
 
             test_surface = cast(pd.DataFrame, test_groups.get(id_, test.iloc[0:0]))
 
@@ -98,7 +98,7 @@ class SSVI(IVSurfaceModel):
                 test_surface["logmoneyness"], test_surface["maturity"], *(minimizer.x)
             )
 
-            test_results = test_surface[["id", "logmoneyness", "maturity"]].copy()
+            test_results = test_surface[[ "logmoneyness", "maturity"]].copy()
 
             test_results["iv"] = test_predictions
 
@@ -109,7 +109,7 @@ class SSVI(IVSurfaceModel):
             )
 
             grid_results = grid.copy()
-            grid_results.insert(0, "id", id_)
+            grid_results.index = pd.Index([id_]*len(grid), name = "id")
 
             grid_results["iv"] = grid_predictions
 
@@ -117,9 +117,9 @@ class SSVI(IVSurfaceModel):
 
             surface_info.append([id_, *(minimizer.x)])
 
-        final_results = pd.concat(final_test, ignore_index=True)
+        final_results = pd.concat(final_test)
 
-        final_grids = pd.concat(final_grid,ignore_index=True)
+        final_grids = pd.concat(final_grid)
 
         final_info = pd.DataFrame(surface_info, columns=["id","sigma0"," sigmainf"," rho"," eta"," gamma"," lambda"]).set_index("id")
 

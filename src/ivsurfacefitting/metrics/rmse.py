@@ -18,20 +18,17 @@ class RMSE(IVMetric):
         """
         real,_,_ = config.getdata()
         results_fit = results.test_results
+        real = real.sort_index()
+        results_fit = results_fit.sort_index()
 
-        if not real["id"].equals(results_fit["id"]):
+        if not real.index.equals(results_fit.index):
             raise ValueError("Index columns must match.")
 
         error = real["iv"].to_numpy() - results_fit["iv"].to_numpy()
 
         rmse_per_id = (
-            pd.DataFrame(
-                {
-                    "id": real["id"],
-                    "error": error,
-                }
-            )
-            .groupby("id")["error"]
+            pd.DataFrame(error,index=real.index)
+            .groupby(level=0)
             .apply(lambda x: np.sqrt(np.mean(x**2)))
         )
 

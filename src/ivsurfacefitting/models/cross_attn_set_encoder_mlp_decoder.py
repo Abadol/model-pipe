@@ -162,17 +162,18 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
         """
         Handles the learning/training.
 
+        Note that sue to the nature of the transformer, each batch is forced to have the exavt same input size,
+        so it will raise an error if the sample sizes are different, this is unavoideable for this architecture,
+        thus either fix the input size of the datasets, or lose information.
+
         Args:
             train_data (pd.DataFrame)
         """
         self.reset_parameters()
-        train_data = pd.read_csv(train_config.datapath)
+        train_data = train_config.getdata()
 
         train_tensor = df_to_tensor(
-            "id",
-            cast(
-                pd.Series, train_data["id"]
-            ),  # cast only needed so type checker doesnt complain
+            train_data.index,
             ["logmoneyness", "maturity", "iv"],
             train_data,
         )
@@ -239,10 +240,14 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
         return IVSurfaceTrainResults()
 
     def fit(self, eval_config: IVSurfaceEvalConfig) -> IVSurfaceEvalResults:
+        """
+        Fits the results.
+        """
 
         test, context, grid = eval_config.getdata()
 
         grid.insert(0, "id", 0)
+        grid = grid.set_index("id")
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(device)
@@ -250,20 +255,18 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
         with torch.no_grad():
             # cast to fix pyright errors
             test_coordinates = cast(
-                pd.DataFrame, test[["id", "logmoneyness", "maturity"]]
+                pd.DataFrame, test[[ "logmoneyness", "maturity"]]
             )
-            indices = cast(pd.Series, test["id"])
+            indices = test.index
 
             # Test evaluating
             context_tensor = df_to_tensor(
-                "id",
                 indices,
                 ["logmoneyness", "maturity", "iv"],
                 context,
             ).to(device)
 
             test_coords_tensor = df_to_tensor(
-                "id",
                 indices,
                 ["logmoneyness", "maturity"],
                 test_coordinates,
@@ -272,7 +275,6 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
             results_tensor = self.forward(context_tensor, test_coords_tensor).to("cpu")
 
             ivs_results = tensor_to_df(
-                "id",
                 indices,
                 ["iv"],
                 results_tensor,
@@ -284,8 +286,7 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
 
             # Grid evaluating
             grid_tensor = df_to_tensor(
-                "id",
-                cast(pd.Series, grid["id"]),
+                grid.index,
                 ["logmoneyness", "maturity"],
                 grid,
             ).to(device)
@@ -294,16 +295,18 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
 
             results_tensor = self.forward(context_tensor, grid_tensor).to("cpu")
 
+            unique_ids = indices.drop_duplicates()
+            grid_full_index = unique_ids.repeat(len(grid))
+
             ivs_results = tensor_to_df(
-                "id",
-                indices,
+                grid_full_index,
                 ["iv"],
                 results_tensor,
             )
 
-            grid_results = grid.copy()
-
-            grid_results["iv"] = ivs_results["iv"]
+            grid_results = pd.concat([grid]*len(unique_ids), ignore_index=True)
+            grid_results.index = grid_full_index
+            grid_results["iv"] = ivs_results["iv"].to_numpy()
 
             surface_info = pd.DataFrame(indices.drop_duplicates(), columns=["id"]).set_index("id") # No surface info to store (yet?)
 

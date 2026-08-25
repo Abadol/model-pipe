@@ -21,17 +21,27 @@ class IVSurfaceEvalConfig(EvalConfig):
         name (str)
     """
 
-    def __init__(self, datapath: Path, name: str, splitter) -> None:
+    def __init__(self, datapath: Path, name: str, splitter = None) -> None:
 
         self.datapath = datapath
         self.name = name
         self.splitter = splitter
 
     def _get_context_data(self) -> pd.DataFrame:
-        return self.splitter(pd.read_csv(self.datapath))
+        if self.splitter == None:
+            return pd.read_csv(self.datapath, index_col="id")
+        else:
+            return self.splitter(pd.read_csv(self.datapath, index_col="id"))
 
     def _get_test_data(self) -> pd.DataFrame:
-        return pd.read_csv(self.datapath)
+        """
+        Gets the test data coordinates and tru values.
+
+        Note that contexxt is a subset of this, and also gets used for metrics, this is by design, since even if context
+        may bias the metrics it does so for all models anyways, and in my opinion the interesting thing is the L2 norm 
+        difference between the interpolated surface and the real one anyways.
+        """
+        return pd.read_csv(self.datapath, index_col="id")
 
     def _get_grid(self) -> pd.DataFrame:
         logmoneyness = np.linspace(-0.4, 0.4, 10)
@@ -89,14 +99,14 @@ class IVSurfaceEvalResults(EvalResults):
 
     def load(self, path: Path):
         try:
-            self.test_results = pd.read_csv(path / "test_results.csv")
+            self.test_results = pd.read_csv(path / "test_results.csv", index_col="id")
         except pd.errors.EmptyDataError:
             self.test_results = pd.DataFrame()
         try:
-            self.grid_results = pd.read_csv(path / "grid_results.csv")
+            self.grid_results = pd.read_csv(path / "grid_results.csv", index_col="id")
         except pd.errors.EmptyDataError:
             self.grid_results = pd.DataFrame()
         try:
-            self.surface_info = pd.read_csv(path / "surface_info.csv")
+            self.surface_info = pd.read_csv(path / "surface_info.csv", index_col="id")
         except pd.errors.EmptyDataError:
             self.surface_info = pd.DataFrame()
