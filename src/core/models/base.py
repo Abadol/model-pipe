@@ -2,22 +2,22 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Generic, TypeVar
 
-from src.core.experiments.evaluation import (
-    EvalConfig,
-    EvalResults,
+from src.core.experiments.learn import (
+    LearnConfig,
+    LearnResults,
 )
-from src.core.experiments.train import (
-    TrainConfig,
-    TrainResults,
+from src.core.experiments.predict import (
+    PredictConfig,
+    PredictResults,
 )
 
-EC = TypeVar("EC", bound=EvalConfig)
-ER = TypeVar("ER", bound=EvalResults)
-TC = TypeVar("TC", bound=TrainConfig)
-TR = TypeVar("TR", bound=TrainResults)
 
+LC = TypeVar("LC", bound=LearnConfig)
+LR = TypeVar("LR", bound=LearnResults)
+PC = TypeVar("PC", bound=PredictConfig)
+PR = TypeVar("PR", bound=PredictResults)
 
-class Model(ABC, Generic[EC, ER, TC, TR]):
+class Model(ABC, Generic[LC,LR,PC,PR]):
     """
     Abstract data class for models.
     """
@@ -29,16 +29,7 @@ class Model(ABC, Generic[EC, ER, TC, TR]):
         self.name = name
         self.learnable = learnable
 
-    @abstractmethod
-    def fit(self, eval_config: EC) -> ER:
-        """
-        Handles the fitting for the model.
-
-        Note that it is the models fit method responsability to get whatever data structure the model uses for fitting.
-        """
-        ...
-
-    def learn(self, train_config: TC) -> TR:
+    def learn(self, learn_config: LC) -> LR:
         """
         Learning algorithm.
         """
@@ -47,9 +38,19 @@ class Model(ABC, Generic[EC, ER, TC, TR]):
         else:
             raise ValueError(f"{self.name} learning not implemented.")
 
+
+    @abstractmethod
+    def predict(self, predict_config: PC) -> PR:
+        """
+        Handles the prediction for the model.
+
+        Note that it is the models predict method responsability to get whatever data structure the model uses for prediction from the config.
+        """
+        ...
+
     def load(self, path: Path) -> None:
         """
-        Loads the model from a file.
+        Loads the model.
         """
         if not self.learnable:
             raise ValueError(f"{self.name} isnt loadeable.")
@@ -58,7 +59,7 @@ class Model(ABC, Generic[EC, ER, TC, TR]):
 
     def save(self, path: Path) -> None:
         """
-        Saves the model to a file.
+        Saves the model.
         """
         if not self.learnable:
             raise ValueError(f"{self.name} cannot be saved.")

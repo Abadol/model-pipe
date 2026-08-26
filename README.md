@@ -8,7 +8,7 @@ The general workflow is an schematic, each problem must implement its own detail
 
 ## Overview
 
-An orchestrator handles the main parts of model fitting and comparing, it makes sure everything is saved in the right directories, handles loading into the metrics and comparing all models. It also keeps all interfaces consistent.
+An orchestrator handles the main parts of model learning and prediction, it makes sure everything is saved in the right directories, handles loading into the metrics and comparing all models. It also keeps all interfaces consistent.
 
 The workflow for an experiment should be:
 - Generate or download all datasets in an standarized way that feeds into all models.
@@ -17,13 +17,13 @@ The workflow for an experiment should be:
 - Press run :D.
 
 The orchestrator will take in all of the collections:
-- Train data
-- Test data
+- Learn data
+- Prediction data
 - Models
 - Metrics
-It then takes all possible combinations, and stores the trained models, results and metrics for easy comparison.
+It then takes all possible combinations, and stores the models, results and metrics for easy comparison.
 
-If you only want to fit or retrain one model, the esier way is to remove the existing results for that specific model, forcetrain or forcefit in pipelin will do so for every model which may be undesireable.
+If you only want to predict or relearn one model, the esier way is to remove the existing results for that specific model, forcelearn or forcepredict in pipeline will do so for every model which may be undesireable.
 
 ## Templating
 
@@ -32,8 +32,8 @@ Optimally, each problem should have scripts for generating/downloading data with
 
 ## Requirements
 
-Almost no libraries are used in the genral framework. This is on purpose so that one could in theory replicate this as easily as possible in other languages other than Python. Only heavily used library in the general framework would be Pandas and the inbulit pathlib library in Python.
+Almost no libraries are used in the genral framework. This is on purpose, one could in theory replicate this as easily as possible in other languages other than Python. Only heavily used library in the general framework would be Pandas and the inbulit pathlib library in Python.
 
 ## TODO
 
-Apart from specific problem TODOs, found in their respective READMEs, fix randomness, add tests, decide on train/learn fit/eval/predict semantics, and reconsider Metrics.
+Apart from specific problem TODOs, found in their respective READMEs, fix randomness?, add tests.

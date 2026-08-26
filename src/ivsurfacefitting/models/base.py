@@ -1,22 +1,23 @@
 from abc import ABC, abstractmethod
 
 from src.core.models.base import Model
-from src.ivsurfacefitting.experiments.evaluation import (
-    IVSurfaceEvalConfig,
-    IVSurfaceEvalResults,
-)
-from src.ivsurfacefitting.experiments.train import (
-    IVSurfaceTrainConfig,
-    IVSurfaceTrainResults,
+
+from src.ivsurfacefitting.experiments.learn import (
+    IVSurfaceLearnConfig,
+    IVSurfaceLearnResults,
 )
 
+from src.ivsurfacefitting.experiments.predict import (
+    IVSurfacePredictConfig,
+    IVSurfacePredictResults,
+)
 
 class IVSurfaceModel(
     Model[
-        IVSurfaceEvalConfig,
-        IVSurfaceEvalResults,
-        IVSurfaceTrainConfig,
-        IVSurfaceTrainResults,
+        IVSurfaceLearnConfig,
+        IVSurfaceLearnResults,
+        IVSurfacePredictConfig,
+        IVSurfacePredictResults,
     ],
     ABC,
 ):
@@ -29,4 +30,4 @@ class IVSurfaceModel(
         self.learnable = learnable
 
     @abstractmethod
-    def fit(self, eval_config: IVSurfaceEvalConfig) -> IVSurfaceEvalResults: ...
+    def predict(self, predict_config: IVSurfacePredictConfig) -> IVSurfacePredictResults: ...

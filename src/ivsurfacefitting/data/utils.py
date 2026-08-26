@@ -28,11 +28,13 @@ def df_to_tensor(
            raise ValueError("All indices must have the same amount of rows.")
     n_points = counts.iloc[0]
 
-    tensor = torch.zeros(len(unique_indeces), n_points, len(valuescols), dtype = torch.float32)
+    ordered = filtered_df.loc[unique_indeces,valuescols]
 
-    for i,index in enumerate(unique_indeces):
-        values = filtered_df.loc[index,valuescols].to_numpy()
-        tensor[i] = torch.tensor(values)
+    values = ordered.to_numpy(dtype = "float32")
+
+    tensor = torch.from_numpy(values).reshape(
+        len(unique_indeces), n_points, len(valuescols)
+    )
 
     return tensor
 

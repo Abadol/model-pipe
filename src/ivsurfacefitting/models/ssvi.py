@@ -5,9 +5,9 @@ import pandas as pd
 from scipy.optimize import minimize
 from tqdm import tqdm
 
-from src.ivsurfacefitting.experiments.evaluation import (
-    IVSurfaceEvalConfig,
-    IVSurfaceEvalResults,
+from src.ivsurfacefitting.experiments.predict import (
+    IVSurfacePredictConfig,
+    IVSurfacePredictResults,
 )
 from src.ivsurfacefitting.models.base import IVSurfaceModel
 
@@ -50,9 +50,9 @@ class SSVI(IVSurfaceModel):
     def __init__(self, name: str = "SSVI") -> None:
         super().__init__(name, learnable=False)
 
-    def fit(self, eval_config: IVSurfaceEvalConfig) -> IVSurfaceEvalResults:
+    def predict(self, predict_config: IVSurfacePredictConfig) -> IVSurfacePredictResults:
 
-        test, context, grid = eval_config.getdata()
+        test, context, grid = predict_config.getdata()
 
         final_test = []
 
@@ -80,10 +80,10 @@ class SSVI(IVSurfaceModel):
 
             parambounds = [
                 [0.001, 3.0],
-                [0.001, 2.0],
+                [0.01, 2.0],
                 [-0.999, 0.999],
                 [0.001, 5.0],
-                [0.0, 2.0],
+                [0.001, 2.0],
                 [0.001, 20.0],
             ]
 
@@ -109,9 +109,9 @@ class SSVI(IVSurfaceModel):
             )
 
             grid_results = grid.copy()
+            grid_results["iv"] = grid_predictions
             grid_results.index = pd.Index([id_]*len(grid), name = "id")
 
-            grid_results["iv"] = grid_predictions
 
             final_grid.append(grid_results)
 
@@ -123,12 +123,6 @@ class SSVI(IVSurfaceModel):
 
         final_info = pd.DataFrame(surface_info, columns=["id","sigma0"," sigmainf"," rho"," eta"," gamma"," lambda"]).set_index("id")
 
-        return IVSurfaceEvalResults(final_results, final_grids, final_info)
-
-
-
-
-
-
+        return IVSurfacePredictResults(final_results, final_grids, final_info)
 
 

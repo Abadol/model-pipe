@@ -5,24 +5,24 @@ from typing import Generic, TypeVar
 
 import pandas as pd
 
-from src.core.experiments.evaluation import EvalConfig, EvalResults
-from src.core.experiments.train import TrainConfig, TrainResults
+from src.core.experiments.learn import LearnConfig, LearnResults
+from src.core.experiments.predict import PredictConfig, PredictResults
 from src.core.metrics.base import Metric
 from src.core.models.base import Model
 
-EC = TypeVar("EC", bound=EvalConfig)
-ER = TypeVar("ER", bound=EvalResults)
-TC = TypeVar("TC", bound=TrainConfig)
-TR = TypeVar("TR", bound=TrainResults)
+LC = TypeVar("LC", bound=LearnConfig)
+LR = TypeVar("LR", bound=LearnResults)
+PC = TypeVar("PC", bound=PredictConfig)
+PR = TypeVar("PR", bound=PredictResults)
 
 
-class Pipeline(ABC, Generic[EC, ER, TC, TR]):
+class Pipeline(ABC, Generic[LC,LR,PC,PR]):
     """
     General pipeline algorithm.
 
     Note that everything is very sensible to the names of the datasets and the models.
-    Training results are made by pairs (train data, model).
-    Testing results are mad eby triplets (train data, test data, model).
+    Learning results are made by pairs (learn data, model).
+    Predicting results are mad eby triplets (learn data, predict data, model).
 
     Attributes:
     TODO
@@ -30,10 +30,10 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
 
     def __init__(
         self,
-        train_configs: Sequence[TC],
-        test_configs: Sequence[EC],
-        models: Sequence[Model[EC, ER, TC, TR]],
-        metrics: Sequence[Metric[EC, ER]],
+        learn_configs: Sequence[LC],
+        predict_configs: Sequence[PC],
+        models: Sequence[Model[LC, LR, PC, PR]],
+        metrics: Sequence[Metric[PC, PR]],
         problem: str,
     ):
         """
@@ -42,8 +42,8 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
         Also ensures that all necessary directories are created.
         """
 
-        self.train_configs = train_configs
-        self.test_configs = test_configs
+        self.learn_configs = learn_configs
+        self.predict_configs = predict_configs
         self.models = models
         self.metrics = metrics
 
@@ -52,50 +52,50 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
         self.results_path = self.path / "results"
         self.results_path.mkdir(parents=True, exist_ok=True)
 
-        self.train_results_path = self.results_path / "train"
-        self.train_results_path.mkdir(parents=True, exist_ok=True)
+        self.learn_results_path = self.results_path / "learn"
+        self.learn_results_path.mkdir(parents=True, exist_ok=True)
 
-        self.test_results_path = self.results_path / "test"
-        self.test_results_path.mkdir(parents=True, exist_ok=True)
+        self.predict_results_path = self.results_path / "predict"
+        self.predict_results_path.mkdir(parents=True, exist_ok=True)
 
-        # Create training and testing directories
+        # Create learning and predicting directories
 
-        for test_config in self.test_configs:
+        for predict_config in self.predict_configs:
             for model in self.models:
                 if model.learnable:
-                    for train_config in self.train_configs:
-                        p = self._get_train_path(model, train_config)
+                    for learn_config in self.learn_configs:
+                        p = self._get_learn_path(model, learn_config)
                         p.mkdir(parents=True, exist_ok=True)
 
-                        p = self._get_test_path(model, train_config, test_config)
+                        p = self._get_predict_path(model, learn_config, predict_config)
                         p.mkdir(parents=True, exist_ok=True)
 
                 else:
-                    p = self._get_test_path(model, None, test_config)
+                    p = self._get_predict_path(model, None, predict_config)
                     p.mkdir(parents=True, exist_ok=True)
 
-    def _get_train_path(self, model: Model, train_config: TC) -> Path:
+    def _get_learn_path(self, model: Model, learn_config: LC) -> Path:
         """
-        Gets path for training directory of the model.
+        Gets path for learning directory of the model.
         """
-        return self.train_results_path / model.name / train_config.name
+        return self.learn_results_path / model.name / learn_config.name
 
-    def _get_test_path(
-        self, model: Model, train_config: TC | None, test_config: EC
+    def _get_predict_path(
+        self, model: Model, learn_config: LC | None, predict_config: PC
     ) -> Path:
         """
-        Gets path for training directory of the model.
+        Gets path for learning directory of the model.
         """
-        if train_config is None:
+        if learn_config is None:
             return (
-                self.test_results_path / model.name / "NoTrain" / test_config.name
-            )  # no train so results live in same depth
+                self.predict_results_path / model.name / "Nolearn" / predict_config.name
+            )  # no learn so results live in same depth
         else:
             return (
-                self.test_results_path
+                self.predict_results_path
                 / model.name
-                / train_config.name
-                / test_config.name
+                / learn_config.name
+                / predict_config.name
             )
 
     @abstractmethod
@@ -111,103 +111,113 @@ class Pipeline(ABC, Generic[EC, ER, TC, TR]):
         ...
 
     @abstractmethod
-    def _load_results(self, path: Path) -> ER:
+    def _load_results(self, path: Path) -> PR:
         """
         Loads results from path.
         """
         ...
 
-    def _train(self,train_config, model, forcetrain):
+    def _learn(self,learn_config, model, forcelearn):
         """
-        Trains and saves a model.
+        learns and saves a model.
         """
-        train_path = self._get_train_path(model, train_config)
-        model_path = train_path / "trained_model.pt"
+        learn_path = self._get_learn_path(model, learn_config)
+        model_path = learn_path / "learned_model.pt"
 
-        if model.learnable and ((not model_path.exists()) or forcetrain):
-            print(f"Learning {model.name} for dataset {train_config.name}.")
-            train_results = model.learn(train_config)
+        if model.learnable and ((not model_path.exists()) or forcelearn):
+            print(f"Learning {model.name} for dataset {learn_config.name}.")
+            learn_results = model.learn(learn_config)
             print("Learnt.")
 
-            train_results.save(train_path)
+            learn_results.save(learn_path)
 
             print(
-                f"Saving {model.name} for dataset {train_config.name} to {model_path}."
+                f"Saving {model.name} for dataset {learn_config.name} to {model_path}."
             )
             model.save(model_path)
             print("Saved.")
-        if model.learnable and model_path.exists() and not forcetrain:
+        elif model.learnable and model_path.exists() and not forcelearn:
             model.load(model_path)
 
 
-    def _fit(self, train_config, test_config, model, forcefit):
+    def _predict(self, learn_config, predict_config, model, forcepredict):
         """
-        Fits each model and applies the metrics.
+        predicts each model and applies the metrics.
         """
         
-        results_path = self._get_test_path(
-            model, train_config, test_config
+        results_path = self._get_predict_path(
+            model, learn_config, predict_config
         )
 
-        if not self._results_exist(results_path) or forcefit:
-            if train_config == None:
-                print(f"Fitting {model.name} for dataset {test_config.name}.")
+        if not self._results_exist(results_path) or forcepredict:
+            if learn_config is None:
+                print(f"predictting {model.name} for dataset {predict_config.name}.")
             else:
-                print(f"Fitting {model.name} with training in {train_config.name} for dataset {test_config.name}.")
+                print(f"predictting {model.name} with learning in {learn_config.name} for dataset {predict_config.name}.")
 
-            results = model.fit(test_config)
+            results = model.predict(predict_config)
         else:
             results = self._load_results(results_path)
         
-        if train_config == None:
-             row = ["NoTrain", test_config.name, model.name]
+        if learn_config is None:
+             row = ["Nolearn", predict_config.name, model.name]
         else:
-             row = [train_config.name, test_config.name, model.name]
+             row = [learn_config.name, predict_config.name, model.name]
 
         for metric in self.metrics:
-            row.append(metric(test_config, results))
+            row.append(metric(predict_config, results))
         results.save(results_path) # metrics may add columns to surface info
 
         return row
 
 
-    def run(self, forcetrain: bool = False, forcefit: bool = False):
+    def run(self, forcelearn: bool = False, forcepredict: bool = False):
         """
         Runs the pipeline.
 
         Args:
-            forcetrain (bool): Retrain models even if trained models already exist.
-            forcefit (bool): Refit the models even if results already exist.
+            forcelearn (bool): Relearn models even if learned models already exist.
+            forcepredict (bool): Repredict the models even if results already exist.
         """
         final_stats = pd.DataFrame(
             columns=[
-                "train_dataset",
-                "test_dataset",
+                "learn_dataset",
+                "predict_dataset",
                 "model",
                 *[metric.name for metric in self.metrics],
             ]
         )
 
+        rows = []
+
         for model in self.models:
             if model.learnable:
-                for train_config in self.train_configs:
+                for learn_config in self.learn_configs:
 
-                    self._train(train_config, model, forcetrain)
+                    self._learn(learn_config, model, forcelearn)
 
-                    for test_config in self.test_configs:
+                    for predict_config in self.predict_configs:
 
-                        row = self._fit(train_config, test_config, model, forcefit)
+                        row = self._predict(learn_config, predict_config, model, forcepredict)
 
-                        final_stats.loc[len(final_stats)] = row
+                        rows.append(row)
 
             elif not model.learnable:
-                for test_config in self.test_configs:
+                for predict_config in self.predict_configs:
 
-                    row = self._fit(None, test_config, model, forcefit)
+                    row = self._predict(None, predict_config, model, forcepredict)
 
-                    final_stats.loc[len(final_stats)] = row
+                    rows.append(row)
 
-
+        final_stats = pd.DataFrame(
+                rows,
+                columns=[
+                    "learn_dataset",
+                    "predict_dataset",
+                    "model",
+                    *[metric.name for metric in self.metrics],
+                ]
+        )            
         print(final_stats)
 
         final_stats.to_csv(self.results_path / "final_statistics.csv", index=False)

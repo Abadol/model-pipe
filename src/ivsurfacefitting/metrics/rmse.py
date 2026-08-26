@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from src.ivsurfacefitting.experiments.evaluation import (
-    IVSurfaceEvalConfig,
-    IVSurfaceEvalResults,
+from src.ivsurfacefitting.experiments.predict import (
+    IVSurfacePredictConfig,
+    IVSurfacePredictResults,
 )
 from src.ivsurfacefitting.metrics.base import IVMetric
 
@@ -12,12 +12,12 @@ class RMSE(IVMetric):
     def __init__(self) -> None:
         super().__init__("rmse")
 
-    def __call__(self, config: IVSurfaceEvalConfig, results: IVSurfaceEvalResults):
+    def __call__(self, config: IVSurfacePredictConfig, results: IVSurfacePredictResults):
         """
         Measures mrse of predicted.
         """
         real,_,_ = config.getdata()
-        results_fit = results.test_results
+        results_fit = results.predict_results
         real = real.sort_index()
         results_fit = results_fit.sort_index()
 

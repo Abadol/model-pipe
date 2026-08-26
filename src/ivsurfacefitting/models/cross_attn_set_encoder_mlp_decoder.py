@@ -3,18 +3,20 @@ from typing import cast
 import numpy as np
 import pandas as pd
 import torch
-from torch import nn
+from torch import device, nn
 from tqdm import tqdm
 
 from src.ivsurfacefitting.data.utils import df_to_tensor, tensor_to_df
-from src.ivsurfacefitting.experiments.evaluation import (
-    IVSurfaceEvalConfig,
-    IVSurfaceEvalResults,
+
+from src.ivsurfacefitting.experiments.learn import (
+    IVSurfaceLearnConfig,
+    IVSurfaceLearnResults,
 )
-from src.ivsurfacefitting.experiments.train import (
-    IVSurfaceTrainConfig,
-    IVSurfaceTrainResults,
+from src.ivsurfacefitting.experiments.predict import (
+    IVSurfacePredictConfig,
+    IVSurfacePredictResults,
 )
+
 from src.ivsurfacefitting.models.base import IVSurfaceModel
 
 
@@ -155,10 +157,10 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
         Resets the parameters of all layers.
         """
         for module in self.modules():
-            if hasattr(module, "reset_parameters") and not module is self:
-                module.reset_parameters()  # Not sure how to fix this pyright issue.
+            if hasattr(module, "_reset_parameters") and not module is self:
+                module._reset_parameters()  # Not sure how to fix this pyright issue.
 
-    def learn(self, train_config: IVSurfaceTrainConfig) -> IVSurfaceTrainResults:
+    def learn(self, learn_config: IVSurfaceLearnConfig) -> IVSurfaceLearnResults:
         """
         Handles the learning/training.
 
@@ -170,7 +172,7 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
             train_data (pd.DataFrame)
         """
         self.reset_parameters()
-        train_data = train_config.getdata()
+        train_data = learn_config.getdata()
 
         train_tensor = df_to_tensor(
             train_data.index,
@@ -181,22 +183,34 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
         input_dim = 2
         output_dim = 1
 
+
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(device)
         self.train()
 
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
         criterion = torch.nn.MSELoss()
+
+
+        # Validation splitting
+        validate_tensor = train_tensor[-50:].to(device) # 30 surfaces used for validation.
+        val_coords = validate_tensor[:,:,:input_dim].to(device)
+        val_values = validate_tensor[:,:,input_dim:].to(device)
+        val_loss = []
+        # end of valdation thingys
+
+        train_tensor = train_tensor[:-50]
+
         n_surfaces, n_points, dimensions = train_tensor.shape
+        batch_size = 256
 
         surface_indeces = np.arange(n_surfaces)
-
-        batch_size = 64
 
         if dimensions != input_dim + output_dim:
             raise ValueError("Tensor dimension doesnt match.")
 
-        for _ in tqdm(range(50)):
+        for _ in tqdm(range(100)):
             np.random.shuffle(surface_indeces)
 
             for batch in range(n_surfaces // batch_size):
@@ -228,6 +242,12 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
 
                 optimizer.step()
 
+            with torch.no_grad():
+                val_pred =  self(validate_tensor, val_coords)
+                l = criterion(val_pred, val_values)
+                scheduler.step(l)
+                val_loss.append(l.item())
+
         self.to("cpu")
 
         if torch.cuda.is_available():
@@ -235,16 +255,20 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
 
         self.eval()
 
-        # TODO: Training results
+        val_losses = pd.DataFrame(
+            {"validation loss": val_loss},
+            index=range(1, len(val_loss) + 1)
+        )
+        val_losses.index.name = "epoch"
 
-        return IVSurfaceTrainResults()
+        return IVSurfaceLearnResults(val_losses)
 
-    def fit(self, eval_config: IVSurfaceEvalConfig) -> IVSurfaceEvalResults:
+    def predict(self, predict_config: IVSurfacePredictConfig) -> IVSurfacePredictResults:
         """
         Fits the results.
         """
 
-        test, context, grid = eval_config.getdata()
+        test, context, grid = predict_config.getdata()
 
         grid.insert(0, "id", 0)
         grid = grid.set_index("id")
@@ -314,7 +338,7 @@ class CrossAttnEncodeMLPDecoder(IVSurfaceModel, nn.Module):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        return IVSurfaceEvalResults(test_results, grid_results, surface_info)
+        return IVSurfacePredictResults(test_results, grid_results, surface_info)
 
     def load(self, path):
         self.load_state_dict(torch.load(path))

@@ -2,13 +2,13 @@ from abc import ABC
 from typing import Any
 
 from src.core.metrics.base import Metric
-from src.ivsurfacefitting.experiments.evaluation import (
-    IVSurfaceEvalConfig,
-    IVSurfaceEvalResults,
+from src.ivsurfacefitting.experiments.predict import (
+    IVSurfacePredictConfig,
+    IVSurfacePredictResults,
 )
 
 
-class IVMetric(Metric[IVSurfaceEvalConfig, IVSurfaceEvalResults], ABC):
+class IVMetric(Metric[IVSurfacePredictConfig, IVSurfacePredictResults], ABC):
     """
     Abstract data class for a mtric for iv surface fitting.
 
@@ -23,6 +23,6 @@ class IVMetric(Metric[IVSurfaceEvalConfig, IVSurfaceEvalResults], ABC):
         self.name = name
 
     def __call__(
-        self, config: IVSurfaceEvalConfig, results: IVSurfaceEvalResults
+        self, config: IVSurfacePredictConfig, results: IVSurfacePredictResults
     ) -> Any:
         return f"Metric {self.name} not implemented."

@@ -1,5 +1,5 @@
 """
-Uses the data in a directory to create a train and a test file.
+Uses the data in a directory to create a learn and a test file.
 
 It asusmes that the directory has pairs of csv files of the form *options.csv and *stocks.csv,
 and constructs one single csv with alll the data.
@@ -7,7 +7,7 @@ and constructs one single csv with alll the data.
 It is intended for the sample data downloadeable at https://historicaldata.net/options.html, just download unzip and put
 them into the directory ivsurfacefitting/datasets/2013-raw, then create an empty directory ivsurfacefitting/datasets/2013.
 
-Data cleaning done is that we only take surfaces if they have more than one hundred data points with traded volume.
+Data cleaning done is that we only take surfaces if they have more than a certain amount of data points with traded volume.
 """
 
 import os
@@ -18,15 +18,16 @@ import pandas as pd
 import numpy as np
 
 PATH = Path("ivsurfacefitting/datasets/2013-raw")
+DATA_POINTS = 20
 
 days = os.listdir(PATH)
 
 days = sorted(list(set([str(s[:10]) for s in days])))
 
-pd.DataFrame(columns=["id","logmoneyness","maturity","iv"]).set_index("id").to_csv("ivsurfacefitting/datasets/2013/2013_train.csv")
-pd.DataFrame(columns=["id","logmoneyness","maturity","iv"]).set_index("id").to_csv("ivsurfacefitting/datasets/2013/2013_test.csv")
+pd.DataFrame(columns=["id","logmoneyness","maturity","iv"]).set_index("id").to_csv("ivsurfacefitting/datasets/2013/2013_learn.csv")
+pd.DataFrame(columns=["id","logmoneyness","maturity","iv"]).set_index("id").to_csv("ivsurfacefitting/datasets/2013/2013_predict.csv")
 
-i = 0
+i = 0 #enumerate fucks up the tqdm.
 for day in tqdm(days):
 
     options = pd.read_csv(PATH / (day + "options.csv"))
@@ -36,7 +37,7 @@ for day in tqdm(days):
 
     for ticker,option_data in options.groupby("underlying"):
 
-        if len(option_data) >= 200:
+        if len(option_data) >= DATA_POINTS:
 
             stock_data = stocks[stocks["symbol"] == ticker]
 
@@ -54,23 +55,22 @@ for day in tqdm(days):
                 "logmoneyness": logmoneyness.to_numpy(),
                 "maturity": maturity.to_numpy(),
                 "iv": iv,
-            }).set_index("id").sample(n = 200)
+            }).set_index("id").sample(n = DATA_POINTS)
 
             if i<len(days)*0.9:
                 df.to_csv(
-                        "ivsurfacefitting/datasets/2013/2013_train.csv",
+                        "ivsurfacefitting/datasets/2013/2013_learn.csv",
                         mode = 'a',
                         header=False,
                         index=True,
                         )
             else:
                 df.to_csv(
-                        "ivsurfacefitting/datasets/2013/2013_test.csv",
+                        "ivsurfacefitting/datasets/2013/2013_predict.csv",
                         mode = 'a',
                         header=False,
                         index=True,
                         )
-
 
     i += 1
 

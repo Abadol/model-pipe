@@ -2,17 +2,17 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.core.experiments.train import TrainConfig, TrainResults
+from src.core.experiments.learn import LearnConfig,LearnResults
 
 
-class IVSurfaceTrainConfig(TrainConfig):
+class IVSurfaceLearnConfig(LearnConfig):
     """
     Has all the info required for an IVSurfaceModel to Learn.
 
     Config can be useful to compare things like optimizer or learning rate used.
 
     Attributes:
-        datapath (Path): Path to the training data.
+        datapath (Path): Path to the learning data.
         name (str)
     """
 
@@ -32,13 +32,18 @@ class IVSurfaceTrainConfig(TrainConfig):
         return pd.read_csv(self.datapath, index_col="id")
 
 
-class IVSurfaceTrainResults(TrainResults):
-    """TODO"""
+class IVSurfaceLearnResults(LearnResults):
+    """
+    Results from training.
 
-    # TODO
+    Currently it only holds the validation loss over epochs.
+    """
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self,val_losses: pd.DataFrame | None = None) -> None:
+        if val_losses is None:
+            self.val_losses = pd.DataFrame()
+        else:
+            self.val_losses = val_losses
 
     def save(self, path: Path) -> None:
-        pass
+        self.val_losses.to_csv(path / "validation_losses.csv")

@@ -1,23 +1,31 @@
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--forcelearn", action="store_true")
+parser.add_argument("--forcepredict", action="store_true")
+args = parser.parse_args()
+
 from pathlib import Path
 
 import pandas as pd
 
-from src.ivsurfacefitting.experiments.evaluation import IVSurfaceEvalConfig
-from src.ivsurfacefitting.experiments.train import IVSurfaceTrainConfig
+from src.ivsurfacefitting.experiments.predict import IVSurfacePredictConfig
+from src.ivsurfacefitting.experiments.learn import IVSurfaceLearnConfig
 from src.ivsurfacefitting.metrics.rmse import RMSE
 from src.ivsurfacefitting.metrics.mae import MAE
+from src.ivsurfacefitting.metrics.na import NA
 from src.ivsurfacefitting.models.cross_attn_set_encoder_mlp_decoder import (
     CrossAttnEncodeMLPDecoder,
 )
 from src.ivsurfacefitting.models.ssvi import SSVI
 from src.ivsurfacefitting.pipeline.base import IVSurfacePipeline
 
-train_configs = [
-    IVSurfaceTrainConfig(
-        Path("ivsurfacefitting/datasets/heston/heston_train.csv"), "heston_train"
+learn_configs = [
+    IVSurfaceLearnConfig(
+        Path("ivsurfacefitting/datasets/heston/heston_learn.csv"), "heston_learn"
     ),
-    IVSurfaceTrainConfig(
-        Path("ivsurfacefitting/datasets/2013/2013_train.csv"), "2013_train"
+    IVSurfaceLearnConfig(
+        Path("ivsurfacefitting/datasets/2013/2013_learn.csv"), "2013_learn"
     ),
 ]
 
@@ -25,26 +33,26 @@ train_configs = [
 def splitter(df: pd.DataFrame):
     end = []
     for _,group in df.groupby(level=0):
-        end.append(group.sample(n=len(group)//10))
+        end.append(group.sample(n=len(group)))
     return pd.concat(end)
 
 
-test_configs = [
-    IVSurfaceEvalConfig(
-        Path("ivsurfacefitting/datasets/heston/heston_test.csv"),
-        "heston_test",
+predict_configs = [
+    IVSurfacePredictConfig(
+        Path("ivsurfacefitting/datasets/heston/heston_predict.csv"),
+        "heston_predict",
         splitter,
     ),
-    IVSurfaceEvalConfig(
-        Path("ivsurfacefitting/datasets/2013/2013_test.csv"), "2013_test", splitter
+    IVSurfacePredictConfig(
+        Path("ivsurfacefitting/datasets/2013/2013_predict.csv"), "2013_predict", splitter
     ),
 ]
 
 pipeline = IVSurfacePipeline(
-    train_configs,
-    test_configs,
+    learn_configs,
+    predict_configs,
     [CrossAttnEncodeMLPDecoder(), SSVI()],
-    [RMSE(), MAE()],
+    [RMSE(), MAE(), NA()],
 )
 
-pipeline.run(forcetrain=False, forcefit=False)
+pipeline.run(forcelearn=args.forcelearn, forcepredict=args.forcepredict)
